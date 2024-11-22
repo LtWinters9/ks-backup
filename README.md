@@ -1,6 +1,5 @@
 # ks-backup
-Simple backup script in bash with SMTP
-(Ensure to install swaks) for mail. 
+Simple backup script in bash
 
 Download file, run chmod +x *
 -
