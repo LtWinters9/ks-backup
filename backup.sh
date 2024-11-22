@@ -3,61 +3,60 @@
 set -e
 
 # -------------------------------------------
-# SMTP
-# -------------------------------------------
-
-SMTP_TO=""
-SMTP_FROM=""
-SMTP_SERVER=""
-SMTP_USER=""
-SMTP_AUTH=''
-
-# -------------------------------------------
 # VARS
 # -------------------------------------------
 
+
+## NFS details
+NFS_DIR="/mnt/path"
+
 ## IDs for backups
-ID_1="Custom ID"
-
-
-## Backup server details
-VPS_SSH='username@server.tld'
-VPS_DIR="data/dir"
+ID_1="websites"
+ID_2="caddy"
+ID_3="logs"
 
 ## SOURCE
 S1="/var/www"
+S2="/etc/caddy"
+S3="/var/log/caddy"
 
 ## BACKUP
-B1="${S1}/mywebsite"
-
+B1="${S1}"
+B2="${S2}"
+B3="${S3}"
 
 ## DESTINATION
-D1=${VPS_DIR}/${ID_1}/
+D1=${NFS_DIR}/${ID_1}/
+D2=${NFS_DIR}/${ID_2}/
+D3=${NFS_DIR}/${ID_3}/
 
 # -------------------------------------------
 # FUNCTIONS
 # -------------------------------------------
 
 function start_backup {
-echo Starting backup on: ${VPS_SSH}
-rsync -avzHP -q "${B1}" "${VPS_SSH}":"${D1}"
+echo Starting backup on: ${HOSTNAME}
+echo rsync data to ${NFS_DIR}
+rsync -avzHP --progress "${B1}" "${D1}"
+rsync -avzHP --progress "${B2}" "${D2}"
+rsync -avzHP --progress "${B3}" "${D3}"
+echo Job completed
 }
 
 function end_backup {
-sleep 1
 clear
-echo Finished  backup on: ${VPS_SSH}
-sleep 2
+echo All Done!
 }
 
 ###### Script start
-echo "Let's get started..."
+cd #
+cd /script/path/
 
-if start_backup
+if start_backup && sleep 2 && clear
 then
- end_backup
+ end_backup && sleep 2 && clear
  exit 0
 else
- echo " Script failed - sending email"
- swaks --to ${SMTP_TO} --from ${SMTP_FROM} --server ${SMTP_SERVER} --auth-user ${SMTP_USER} --auth-password ${SMTP_AUTH} --body "failed to backup on $(date '+%Y-%m-%d')" --header 'Subject: BACKUP FAILED for backup server' ; exit 1
+ echo "Script Failed"
+ exit 1
 fi
