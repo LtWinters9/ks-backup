@@ -1,4 +1,4 @@
-# 🔐 Encrypted Backup Script
+# 🔐 Encrypted Backup Script `nfs.sh`
 
 This Bash script automates the process of securely backing up critical directories, encrypting the archive, and distributing it to multiple destinations with retention and cleanup policies.
 
@@ -30,3 +30,25 @@ This Bash script automates the process of securely backing up critical directori
 ## 📌 Usage
 
 Run the script manually or schedule it via `cron` for automated backups.
+----------------------------------------------------------------------------
+# 🔄 Secure Backup Restoration Script `restore.sh`
+
+This Bash script automates the secure restoration of encrypted backup archives. It provides an interactive, user-friendly interface with color-coded prompts and safety checks.
+
+## ✅ Features
+- 🔐 **Decryption** using AES-128-CBC with PBKDF2 and SHA3-256 hashed keys
+- 📁 **Interactive selection** of backup server and archive
+- 🛡️ **Safety checks** for protected directories and permissions
+- 🧵 **Parallel decryption and extraction** for efficiency
+- 🧹 **Automatic cleanup** of temporary files on exit
+
+## 🧰 How It Works
+1. **Select Backup Server**: Choose between predefined backup sources (e.g., Kefs or Hetzner).
+2. **List & Select Archive**: Displays available `.tar.gz.enc` files for restoration.
+3. **Destination Directory**: Prompts for a safe extraction path with overwrite confirmation.
+4. **Decrypt & Extract**: Decrypts and extracts each archive in parallel to the specified location.
+
+## 🔒 Requirements
+- OpenSSL
+- Access to the encryption key at `/etc/backups/encryption_key.txt`
+- Sufficient permissions for reading backups and writing to the destination
