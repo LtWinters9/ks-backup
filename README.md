@@ -43,7 +43,7 @@ This Bash script automates the secure restoration of encrypted backup archives. 
 - 🧹 **Automatic cleanup** of temporary files on exit
 
 ## 🧰 How It Works
-1. **Select Backup Server**: Choose between predefined backup sources (e.g., Kefs or Hetzner).
+1. **Select Backup Server**: Choose between predefined backup sources (e.g., Primary or Secondary Server).
 2. **List & Select Archive**: Displays available `.tar.gz.enc` files for restoration.
 3. **Destination Directory**: Prompts for a safe extraction path with overwrite confirmation.
 4. **Decrypt & Extract**: Decrypts and extracts each archive in parallel to the specified location.
