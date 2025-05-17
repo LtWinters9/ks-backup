@@ -1,2 +1,2 @@
 ## ENTER YOUR PASSWORD THAT WILL BE HASHED
-helloword!
+bestpasswordused
