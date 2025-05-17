@@ -27,10 +27,10 @@ create_dir() {
 select_backup_server() {
   echo -e "${YELLOW}📡 Please choose the backup server to restore from:${NC}"
   PS3="➡️ Type the number corresponding to your chosen server: "
-  select SERVER in "Kefs" "Hetzner"; do
+  select SERVER in "Primary" "Secondary"; do
     case $REPLY in
-      1) DEST_DIR="/mnt/kefs/nfs-lon1/kloudstack"; break ;;
-      2) DEST_DIR="/mnt/ks/sb/kloudstack"; break ;;
+      1) DEST_DIR="/mnt/primary"; break ;;
+      2) DEST_DIR="/mnt/secondary"; break ;;
       *) echo -e "${RED}❌ That option isn't valid. Please select a valid number.${NC}" ;;
     esac
   done
