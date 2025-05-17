@@ -7,7 +7,7 @@ This Bash script automates the process of securely backing up critical directori
 - **Backup Sources**: `/var/www`, `/etc/caddy`, `/var/log/caddy`, `/var/log/`
 - **Destinations**: `/mnt/nfs/primary`, `/mnt/nfs/secondary`
 - **Encryption**: AES-128-CBC with PBKDF2 and SHA-3-256 hashed key
-- **Retention Policy**: Deletes backups older than 5 days
+- **Retention Policy**: Deletes backups older than 60 days
 - **Logging**: Logs success/failure of backup transfers
 - **Safety Checks**: Verifies disk space before copying
 - **Cleanup**: Removes temporary files after completion
