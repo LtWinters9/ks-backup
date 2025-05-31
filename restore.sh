@@ -2,9 +2,9 @@
 
 # Variables
 TEMP_DIR="/tmp/restore_tmp" # Temporary directory for processing
-ENCRYPTION_KEY=$(cat /etc/backups/encryption_key.txt) # Encryption key from file
+ENCRYPTION_KEY_FILE="/etc/backups/encryption_key.txt" # Encryption key file
 ITERATIONS=100000 # Number of iterations for key derivation
-HASHED_KEY=$(echo -n $ENCRYPTION_KEY | openssl dgst -sha3-256 | awk '{print $2}') # Hashed encryption key
+LOG_FILE="/var/log/restore_script.log" # Log file for audit and troubleshooting
 
 # Color codes for output messages
 RED='\033[0;31m'
@@ -27,10 +27,10 @@ create_dir() {
 select_backup_server() {
   echo -e "${YELLOW}📡 Please choose the backup server to restore from:${NC}"
   PS3="➡️ Type the number corresponding to your chosen server: "
-  select SERVER in "Primary" "Secondary"; do
+  select SERVER in "Kefs" "Hetzner"; do
     case $REPLY in
-      1) DEST_DIR="/mnt/primary"; break ;;
-      2) DEST_DIR="/mnt/secondary"; break ;;
+      1) DEST_DIR="/mnt/kefs/nfs-lon1/kloudstack"; break ;;
+      2) DEST_DIR="/mnt/ks/sb/kloudstack"; break ;;
       *) echo -e "${RED}❌ That option isn't valid. Please select a valid number.${NC}" ;;
     esac
   done
@@ -75,39 +75,60 @@ decrypt_and_extract() {
   local file=$1
   local temp_file="$TEMP_DIR/$(basename "$file" .enc)"
   echo -e "${BLUE}🔐 Decrypting the selected backup file...${NC}"
+  echo -e "${BLUE}🔐 Decrypting the selected backup file...${NC}" >> "$LOG_FILE"
   openssl enc -d -aes-128-cbc -salt -pbkdf2 -iter $ITERATIONS -in "$file" -out "$temp_file" -k "$HASHED_KEY"
   if [ $? -ne 0 ]; then
     echo -e "${RED}❌ Decryption failed. Please verify the encryption key.${NC}" >&2
+    echo -e "${RED}❌ Decryption failed. Please verify the encryption key.${NC}" >> "$LOG_FILE"
     return 1
   fi
   echo -e "${GREEN}✅ Decryption successful. Temporary file created: $temp_file${NC}"
+  echo -e "${GREEN}✅ Decryption successful. Temporary file created: $temp_file${NC}" >> "$LOG_FILE"
   echo -e "${BLUE}📦 Extracting contents from the decrypted archive...${NC}"
+  echo -e "${BLUE}📦 Extracting contents from the decrypted archive...${NC}" >> "$LOG_FILE"
   tar -xzf "$temp_file" -C "$EXTRACT_DIR"
   if [ $? -ne 0 ]; then
     echo -e "${RED}❌ Extraction failed. Please check the archive integrity.${NC}" >&2
+    echo -e "${RED}❌ Extraction failed. Please check the archive integrity.${NC}" >> "$LOG_FILE"
     return 1
   fi
   echo -e "${GREEN}✅ Files successfully extracted to: $EXTRACT_DIR${NC}"
+  echo -e "${GREEN}✅ Files successfully extracted to: $EXTRACT_DIR${NC}" >> "$LOG_FILE"
   rm -f "$temp_file"
 }
 
 # Main script
 echo -e "${BLUE}🔄 Initiating the backup restoration process...${NC}"
+echo -e "${BLUE}🔄 Initiating the backup restoration process...${NC}" >> "$LOG_FILE"
+
+# Validate encryption key file
+if [ ! -s "$ENCRYPTION_KEY_FILE" ]; then
+  echo -e "${RED}❌ Encryption key file is missing or empty.${NC}" >&2
+  echo -e "${RED}❌ Encryption key file is missing or empty.${NC}" >> "$LOG_FILE"
+  exit 1
+fi
+
+ENCRYPTION_KEY=$(cat "$ENCRYPTION_KEY_FILE") # Read encryption key from file
+HASHED_KEY=$(echo -n $ENCRYPTION_KEY | openssl dgst -sha3-256 | awk '{print $2}') # Hashed encryption key
+
 select_backup_server
 create_dir "$TEMP_DIR"
 list_backup_files
 prompt_destination_dir
 
-# Decrypt and extract selected backup files in parallel
-for file in "$DEST_DIR"/*.tar.gz.enc; do
-  decrypt_and_extract "$file" &
-done
-wait
+# Decrypt and extract selected backup file
+decrypt_and_extract "$BACKUP_FILE"
 
 echo -e "${GREEN}🎉 Backup restoration completed successfully!${NC}"
+echo -e "${GREEN}🎉 Backup restoration completed successfully!${NC}" >> "$LOG_FILE"
 
 # Ensure cleanup on exit
-trap 'rm -f "$TEMP_DIR"/*' EXIT
+cleanup() {
+  echo -e "${BLUE}🧹 Cleaning up temporary files...${NC}"
+  echo -e "${BLUE}🧹 Cleaning up temporary files...${NC}" >> "$LOG_FILE"
+  rm -f "$TEMP_DIR"/*
+}
+trap cleanup EXIT INT TERM
 
 # Clear the terminal
 clear
