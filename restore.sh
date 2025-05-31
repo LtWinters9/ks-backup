@@ -25,14 +25,21 @@ create_dir() {
 }
 
 select_backup_server() {
-  echo -e "${YELLOW}📡 Please choose the backup server to restore from:${NC}"
-  PS3="➡️ Type the number corresponding to your chosen server: "
-  select SERVER in "Primary" "Secondary"; do
-    case $REPLY in
-      1) DEST_DIR="/mnt/primary"; break ;;
-      2) DEST_DIR="/mnt/secondary"; break ;;
-      *) echo -e "${RED}❌ That option isn't valid. Please select a valid number.${NC}" ;;
-    esac
+  while true; do
+    echo -e "${YELLOW}📡 Please choose the backup server to restore from:${NC}"
+    PS3="➡️ Type the number corresponding to your chosen server: "
+    select SERVER in "Primary" "Secondary"; do
+      case $REPLY in
+        1) DEST_DIR="/mnt/primary"; break ;;
+        2) DEST_DIR="/mnt/secondary"; break ;;
+        *) echo -e "${RED}❌ That option isn't valid. Please select a valid number.${NC}" ;;
+      esac
+    done
+    echo -e "${YELLOW}⚠️ You have selected: $SERVER. Is this correct? (yes/no)${NC}"
+    read -r CONFIRM
+    if [ "$CONFIRM" == "yes" ]; then
+      break
+    fi
   done
 }
 
@@ -108,21 +115,19 @@ if [ ! -s "$ENCRYPTION_KEY_FILE" ]; then
   exit 1
 fi
 
-ENCRYPTION_KEY=$(cat "$ENCRYPTION_KEY_FILE") # Read encryption key from file
-HASHED_KEY=$(echo -n $ENCRYPTION_KEY | openssl dgst -sha3-256 | awk '{print $2}') # Hashed encryption key
+ENCRYPTION_KEY=$(cat "$ENCRYPTION_KEY_FILE")
+HASHED_KEY=$(echo -n $ENCRYPTION_KEY | openssl dgst -sha3-256 | awk '{print $2}')
 
 select_backup_server
 create_dir "$TEMP_DIR"
 list_backup_files
 prompt_destination_dir
-
-# Decrypt and extract selected backup file
 decrypt_and_extract "$BACKUP_FILE"
 
 echo -e "${GREEN}🎉 Backup restoration completed successfully!${NC}"
 echo -e "${GREEN}🎉 Backup restoration completed successfully!${NC}" >> "$LOG_FILE"
 
-# Ensure cleanup on exit
+# Cleanup on exit
 cleanup() {
   echo -e "${BLUE}🧹 Cleaning up temporary files...${NC}"
   echo -e "${BLUE}🧹 Cleaning up temporary files...${NC}" >> "$LOG_FILE"
