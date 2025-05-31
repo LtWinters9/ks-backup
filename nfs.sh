@@ -1,25 +1,25 @@
 #!/bin/bash
 
 # Variables
-SOURCE_DIRS=("/var/www" "/etc/caddy" "/var/log/caddy" "/var/log/") # Directories to back up
-DEST_DIRS=("/mnt/nfs/primary" "/mnt/nfs/secondary") # Backup destinations directories
-BACKUP_NAME="backup_$(date +%d-%m-%Y).tar.gz" # Backup filename with date
-TEMP_DIR="/mnt/nfs/primary/tmp" # Temporary working directory
-RETENTION_DAYS=60 # Retention period for old backups
-ENCRYPTION_KEY=$(cat /etc/backups/encryption_key.txt) # Read encryption key
-ITERATIONS=100000 # Key derivation iterations
-HASHED_KEY=$(echo -n $ENCRYPTION_KEY | openssl dgst -sha3-256 | awk '{print $2}') # SHA-3 hash of key
+SOURCE_DIRS=("/var/www" "/etc/caddy" "/var/log/caddy" "/var/log/")
+DEST_DIRS=("/mnt/nfs/primary" "/mnt/nfs/secondary")
+BACKUP_NAME="backup_$(date +%d-%m-%Y).tar.gz"
+TEMP_DIR="/tmp/backup_tmp"
+RETENTION_DAYS=60
+ENCRYPTION_KEY=$(cat /etc/backups/encryption_key.txt)
+ITERATIONS=100000
+HASHED_KEY=$(echo -n $ENCRYPTION_KEY | openssl dgst -sha3-256 | awk '{print $2}')
 
 # Color codes
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[0;33m'
-NC='\033[0m' # No Color
+NC='\033[0m'
 
 # Functions
 function setup_directories() {
   echo -e "${YELLOW}Preparing backup directories...${NC}"
-  mkdir -p $TEMP_DIR && chmod 700 $TEMP_DIR
+  mkdir -p "$TEMP_DIR" && chmod 700 "$TEMP_DIR"
   for dir in "${DEST_DIRS[@]}"; do
     mkdir -p "$dir" && chmod 700 "$dir"
   done
@@ -31,7 +31,7 @@ function setup_directories() {
 
 function create_compressed_file() {
   echo -e "${YELLOW}Compressing source directories...${NC}"
-  tar --transform 's,^/,,' -czf $TEMP_DIR/$BACKUP_NAME -C / "${SOURCE_DIRS[@]}"
+  tar --transform 's,^/,,' -czf "$TEMP_DIR/$BACKUP_NAME" -C / "${SOURCE_DIRS[@]}"
   if [ $? -ne 0 ]; then
     echo -e "${RED}Error: Compression failed.${NC}" >&2
     exit 1
@@ -41,7 +41,7 @@ function create_compressed_file() {
 
 function encrypt_backup_file() {
   echo -e "${YELLOW}Encrypting the backup archive...${NC}"
-  openssl enc -aes-128-cbc -salt -pbkdf2 -iter $ITERATIONS -in $TEMP_DIR/$BACKUP_NAME -out $TEMP_DIR/${BACKUP_NAME}.enc -k $HASHED_KEY
+  openssl enc -aes-128-cbc -salt -pbkdf2 -iter $ITERATIONS -in "$TEMP_DIR/$BACKUP_NAME" -out "$TEMP_DIR/${BACKUP_NAME}.enc" -k "$HASHED_KEY"
   if [ $? -ne 0 ]; then
     echo -e "${RED}Error: Encryption failed.${NC}" >&2
     exit 1
@@ -51,9 +51,9 @@ function encrypt_backup_file() {
 
 function check_disk_space() {
   echo -e "${YELLOW}Verifying available disk space...${NC}"
-  REQUIRED_SPACE=$(du -sb $TEMP_DIR/${BACKUP_NAME}.enc | awk '{print $1}')
+  REQUIRED_SPACE=$(du -sb "$TEMP_DIR/${BACKUP_NAME}.enc" | awk '{print $1}')
   for dir in "${DEST_DIRS[@]}"; do
-    AVAILABLE_SPACE=$(df "$dir" | tail -1 | awk '{print $4}')
+    AVAILABLE_SPACE=$(df -B1 "$dir" | tail -1 | awk '{print $4}')
     if [ "$AVAILABLE_SPACE" -lt "$REQUIRED_SPACE" ]; then
       echo -e "${RED}Error: Insufficient space in $dir.${NC}" >&2
       exit 1
@@ -78,7 +78,7 @@ function copy_backup_file() {
 
 function clean_temp_files() {
   echo -e "${YELLOW}Removing temporary files...${NC}"
-  rm -f $TEMP_DIR/$BACKUP_NAME $TEMP_DIR/${BACKUP_NAME}.enc
+  rm -f "$TEMP_DIR/$BACKUP_NAME" "$TEMP_DIR/${BACKUP_NAME}.enc"
   if [ $? -ne 0 ]; then
     echo -e "${RED}Error: Cleanup failed.${NC}" >&2
     exit 1
@@ -100,19 +100,19 @@ function apply_retention_policy() {
 
 # Main script
 echo -e "${YELLOW}Initiating backup process...${NC}"
-setup_directories &
+setup_directories
+
 create_compressed_file &
 wait
+
 encrypt_backup_file &
 wait
-check_disk_space &
-wait
-copy_backup_file &
-wait
-clean_temp_files &
-wait
-apply_retention_policy &
-wait
+
+check_disk_space
+copy_backup_file
+clean_temp_files
+apply_retention_policy
+
 echo -e "${GREEN}Backup process completed successfully.${NC}"
 
 # Ensure cleanup on exit
