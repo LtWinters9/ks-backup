@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Variables
-TEMP_DIR="/tmp/backup_tmp" # Temporary directory for processing
+TEMP_DIR="/tmp/restore_tmp" # Temporary directory for processing
 ENCRYPTION_KEY=$(cat /etc/backups/encryption_key.txt) # Encryption key from file
 ITERATIONS=100000 # Number of iterations for key derivation
 HASHED_KEY=$(echo -n $ENCRYPTION_KEY | openssl dgst -sha3-256 | awk '{print $2}') # Hashed encryption key
