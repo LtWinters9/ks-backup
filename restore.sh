@@ -1,10 +1,9 @@
 #!/bin/bash
 
 # Variables
-TEMP_DIR="/tmp/restore_tmp" # Temporary directory for processing
+TEMP_DIR=$(mktemp -d) # Unique temporary directory for processing
 ENCRYPTION_KEY_FILE="/etc/backups/encryption_key.txt" # Encryption key file
 ITERATIONS=100000 # Number of iterations for key derivation
-LOG_FILE="/var/log/restore_script.log" # Log file for audit and troubleshooting
 
 # Color codes for output messages
 RED='\033[0;31m'
@@ -12,6 +11,21 @@ GREEN='\033[0;32m'
 YELLOW='\033[0;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
+
+# Spinner function with emojis
+spinner() {
+  local pid=$1
+  local delay=0.1
+  local spinstr=('⏳' '🔄' '🔁' '🔃')
+  while kill -0 "$pid" 2>/dev/null; do
+    for i in "${spinstr[@]}"; do
+      printf " [%s]  " "$i"
+      sleep $delay
+      printf "\b\b\b\b\b\b"
+    done
+  done
+  printf "      \b\b\b\b\b\b"
+}
 
 # Functions
 create_dir() {
@@ -82,36 +96,33 @@ decrypt_and_extract() {
   local file=$1
   local temp_file="$TEMP_DIR/$(basename "$file" .enc)"
   echo -e "${BLUE}🔐 Decrypting the selected backup file...${NC}"
-  echo -e "${BLUE}🔐 Decrypting the selected backup file...${NC}" >> "$LOG_FILE"
-  openssl enc -d -aes-128-cbc -salt -pbkdf2 -iter $ITERATIONS -in "$file" -out "$temp_file" -k "$HASHED_KEY"
+  openssl enc -d -aes-128-cbc -salt -pbkdf2 -iter $ITERATIONS -in "$file" -out "$temp_file" -k "$HASHED_KEY" &
+  pid=$!
+  spinner $pid
+  wait $pid
   if [ $? -ne 0 ]; then
     echo -e "${RED}❌ Decryption failed. Please verify the encryption key.${NC}" >&2
-    echo -e "${RED}❌ Decryption failed. Please verify the encryption key.${NC}" >> "$LOG_FILE"
     return 1
   fi
   echo -e "${GREEN}✅ Decryption successful. Temporary file created: $temp_file${NC}"
-  echo -e "${GREEN}✅ Decryption successful. Temporary file created: $temp_file${NC}" >> "$LOG_FILE"
   echo -e "${BLUE}📦 Extracting contents from the decrypted archive...${NC}"
-  echo -e "${BLUE}📦 Extracting contents from the decrypted archive...${NC}" >> "$LOG_FILE"
-  tar -xzf "$temp_file" -C "$EXTRACT_DIR"
+  tar -xzf "$temp_file" -C "$EXTRACT_DIR" &
+  pid=$!
+  spinner $pid
+  wait $pid
   if [ $? -ne 0 ]; then
     echo -e "${RED}❌ Extraction failed. Please check the archive integrity.${NC}" >&2
-    echo -e "${RED}❌ Extraction failed. Please check the archive integrity.${NC}" >> "$LOG_FILE"
     return 1
   fi
   echo -e "${GREEN}✅ Files successfully extracted to: $EXTRACT_DIR${NC}"
-  echo -e "${GREEN}✅ Files successfully extracted to: $EXTRACT_DIR${NC}" >> "$LOG_FILE"
   rm -f "$temp_file"
 }
 
 # Main script
 echo -e "${BLUE}🔄 Initiating the backup restoration process...${NC}"
-echo -e "${BLUE}🔄 Initiating the backup restoration process...${NC}" >> "$LOG_FILE"
 
-# Validate encryption key file
 if [ ! -s "$ENCRYPTION_KEY_FILE" ]; then
   echo -e "${RED}❌ Encryption key file is missing or empty.${NC}" >&2
-  echo -e "${RED}❌ Encryption key file is missing or empty.${NC}" >> "$LOG_FILE"
   exit 1
 fi
 
@@ -119,19 +130,16 @@ ENCRYPTION_KEY=$(cat "$ENCRYPTION_KEY_FILE")
 HASHED_KEY=$(echo -n $ENCRYPTION_KEY | openssl dgst -sha3-256 | awk '{print $2}')
 
 select_backup_server
-create_dir "$TEMP_DIR"
 list_backup_files
 prompt_destination_dir
 decrypt_and_extract "$BACKUP_FILE"
 
 echo -e "${GREEN}🎉 Backup restoration completed successfully!${NC}"
-echo -e "${GREEN}🎉 Backup restoration completed successfully!${NC}" >> "$LOG_FILE"
 
-# Cleanup on exit
+# Ensure cleanup on exit
 cleanup() {
   echo -e "${BLUE}🧹 Cleaning up temporary files...${NC}"
-  echo -e "${BLUE}🧹 Cleaning up temporary files...${NC}" >> "$LOG_FILE"
-  rm -f "$TEMP_DIR"/*
+  rm -rf "$TEMP_DIR"
 }
 trap cleanup EXIT INT TERM
 
