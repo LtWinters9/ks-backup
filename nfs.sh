@@ -4,7 +4,7 @@
 SOURCE_DIRS=("/var/www" "/etc/caddy" "/var/log/caddy" "/var/log/")
 DEST_DIRS=("/mnt/nfs/primary" "/mnt/nfs/secondary")
 BACKUP_NAME="backup_$(date +%d-%m-%Y).tar.gz"
-TEMP_DIR="/tmp/backup_tmp"
+TEMP_DIR=$(mktemp -d /tmp/backup_tmp.XXXXXX)
 RETENTION_DAYS=60
 ENCRYPTION_KEY=$(cat /etc/backups/encryption_key.txt)
 ITERATIONS=100000
@@ -77,13 +77,13 @@ function copy_backup_file() {
 }
 
 function clean_temp_files() {
-  echo -e "${YELLOW}Removing temporary files...${NC}"
-  rm -f "$TEMP_DIR/$BACKUP_NAME" "$TEMP_DIR/${BACKUP_NAME}.enc"
+  echo -e "${YELLOW}Removing temporary files and directory...${NC}"
+  rm -rf "$TEMP_DIR"
   if [ $? -ne 0 ]; then
     echo -e "${RED}Error: Cleanup failed.${NC}" >&2
     exit 1
   fi
-  echo -e "${GREEN}Temporary files cleaned up.${NC}"
+  echo -e "${GREEN}Temporary directory cleaned up.${NC}"
 }
 
 function apply_retention_policy() {
@@ -101,22 +101,18 @@ function apply_retention_policy() {
 # Main script
 echo -e "${YELLOW}Initiating backup process...${NC}"
 setup_directories
-
 create_compressed_file &
 wait
-
 encrypt_backup_file &
 wait
-
 check_disk_space
 copy_backup_file
 clean_temp_files
 apply_retention_policy
-
 echo -e "${GREEN}Backup process completed successfully.${NC}"
 
-# Ensure cleanup on exit
-trap clean_temp_files EXIT
+# Ensure cleanup on exit or failure
+trap clean_temp_files EXIT INT ERR
 
 # Clear the terminal
 clear
