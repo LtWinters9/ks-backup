@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Variables
-SOURCE_DIRS=("/var/www" "/etc/caddy" "/var/log/caddy" "/var/log/" "/opt/ks-guvnor")
+SOURCE_DIRS=("/var/www" "/etc/caddy" "/var/log/caddy" "/var/log/" "/opt/scripts")
 DEST_DIRS=("/mnt/p/" "/mnt/s")
 BACKUP_NAME="backup_$(date +%d-%m-%Y-%I%p).tar.gz"
 TEMP_DIR=$(mktemp -d /tmp/backup_tmp.XXXXXX)
@@ -152,8 +152,11 @@ function apply_retention_policy() {
 # Main script
 echo -e "${YELLOW}Initiating backup process...${NC}"
 setup_directories
-create_compressed_file
-encrypt_backup_file
+create_compressed_file &
+wait  # Wait for compression to complete
+encrypt_backup_file &
+wait  # Wait for encryption to complete
+echo -e "${GREEN}Backup archive created and encrypted successfully.${NC}"
 check_disk_space
 copy_backup_file
 clean_temp_files
