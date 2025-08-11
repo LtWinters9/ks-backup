@@ -3,8 +3,8 @@
 umask 077  # Set restrictive permissions for all created files
 
 # Variables
-SOURCE_DIRS=("/var/www" "/etc/caddy" "/var/log/caddy" "/var/log/" "/opt/scripts")
-DEST_DIRS=("/mnt/hetzner-sb/hel1-bx98/" "/mnt/hetzner-sb/fsn1-bx196/")
+SOURCE_DIRS=("/var/www" "/etc/caddy" "/var/log/caddy" "/var/log/" "/opt/ks-guvnor")
+DEST_DIRS=("/mnt/p/" "/mnt/s/")
 BACKUP_NAME="backup_$(date +%d-%m-%Y-%I%p).tar.gz"
 TEMP_DIR=$(mktemp -d /tmp/backup_tmp.XXXXXX)
 RETENTION_DAYS=180
@@ -38,6 +38,26 @@ log_error() {
   echo "[$(date)] Error: $1" >> "$LOG_FILE"
 }
 
+# Log rotation function (keeps last 5 logs, rotates daily)
+rotate_logs() {
+  local max_logs=5
+  local log_dir
+  log_dir=$(dirname "$LOG_FILE")
+  local log_base
+  log_base=$(basename "$LOG_FILE")
+  local today_log="$LOG_FILE.$(date +%Y-%m-%d)"
+
+  # Move current log to dated log if not already done today
+  if [ -f "$LOG_FILE" ]; then
+    if [ ! -f "$today_log" ]; then
+      mv "$LOG_FILE" "$today_log"
+    fi
+  fi
+
+  # Remove oldest logs if more than $max_logs exist
+  ls -1t "$LOG_FILE".* 2>/dev/null | tail -n +$((max_logs + 1)) | xargs -r rm --
+}
+
 # Exit codes
 EXIT_KEY_NOT_READABLE=10
 EXIT_KEY_PERM_FAIL=11
@@ -50,6 +70,9 @@ EXIT_COPY_FAIL=50
 EXIT_CLEANUP_FAIL=60
 EXIT_RETENTION_FAIL=70
 EXIT_TEMP_SPACE_FAIL=80
+
+# Rotate logs at the start of the script
+rotate_logs
 
 # Check encryption key file permissions and readability
 if [ ! -r "$ENCRYPTION_KEY_FILE" ]; then
