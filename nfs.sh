@@ -4,7 +4,7 @@ umask 077  # Set restrictive permissions for all created files
 
 # Variables
 SOURCE_DIRS=("/var/www" "/etc/caddy" "/var/log/caddy" "/var/log/" "/opt/scripts")
-DEST_DIRS=("/mnt/p/" "/mnt/s/")
+DEST_DIRS=("/mnt/hetzner-sb/hel1-bx98/" "/mnt/hetzner-sb/fsn1-bx196/")
 BACKUP_NAME="backup_$(date +%d-%m-%Y-%I%p).tar.gz"
 TEMP_DIR=$(mktemp -d /tmp/backup_tmp.XXXXXX)
 RETENTION_DAYS=180
@@ -49,6 +49,7 @@ EXIT_DISK_SPACE_FAIL=40
 EXIT_COPY_FAIL=50
 EXIT_CLEANUP_FAIL=60
 EXIT_RETENTION_FAIL=70
+EXIT_TEMP_SPACE_FAIL=80
 
 # Check encryption key file permissions and readability
 if [ ! -r "$ENCRYPTION_KEY_FILE" ]; then
@@ -99,6 +100,19 @@ function validate_mounts() {
       exit $EXIT_MOUNT_FAIL
     fi
   done
+}
+
+function check_temp_space() {
+  echo -e "${YELLOW}Checking available space for temporary backup files...${NC}"
+  SOURCE_SIZE=$(du -sb "${SOURCE_DIRS[@]}" | awk '{sum += $1} END {print sum}')
+  REQUIRED_TEMP_SPACE=$((SOURCE_SIZE + SOURCE_SIZE / 3))
+  TEMP_MOUNT=$(df -B1 "$TEMP_DIR" | tail -1 | awk '{print $4}')
+  if [ "$TEMP_MOUNT" -lt "$REQUIRED_TEMP_SPACE" ]; then
+    echo -e "${RED}Error: Not enough space in temp directory ($TEMP_DIR). Needed: $REQUIRED_TEMP_SPACE bytes.${NC}" >&2
+    log_error "Not enough space in temp directory ($TEMP_DIR). Needed: $REQUIRED_TEMP_SPACE bytes."
+    exit $EXIT_TEMP_SPACE_FAIL
+  fi
+  echo -e "${GREEN}Sufficient space available in temp directory.${NC}"
 }
 
 function create_compressed_file() {
@@ -185,6 +199,7 @@ function apply_retention_policy() {
 echo -e "${YELLOW}Initiating backup process...${NC}"
 setup_directories
 validate_mounts
+check_temp_space
 create_compressed_file &
 wait  # Wait for compression to complete
 encrypt_backup_file &
