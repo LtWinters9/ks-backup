@@ -50,5 +50,5 @@ This Bash script automates the secure restoration of encrypted backup archives. 
 
 ## 🔒 Requirements
 - OpenSSL
-- Access to the encryption key at `/etc/backups/encryption_key.txt`
+- Access to the encryption key at `/etc/backups.env`
 - Sufficient permissions for reading backups and writing to the destination
