@@ -1,2 +1,0 @@
-## ENTER YOUR PASSWORD THAT WILL BE HASHED
-bestpasswordused
