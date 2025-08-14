@@ -24,7 +24,7 @@ This Bash script automates the process of securely backing up critical directori
 
 ## 🛡️ Security
 
-- Uses a hashed encryption key stored securely in `/etc/backups/encryption_key.txt`
+- Uses a hashed encryption key stored securely in `/etc/backups/.env
 - Encrypted backups are stored with `.tar.gz.enc` extension
 
 ## 📌 Usage
