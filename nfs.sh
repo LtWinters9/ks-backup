@@ -102,8 +102,8 @@ check_temp_space() {
 # Stream compression and encryption using AES-256-CBC
 stream_compress_encrypt() {
   log_info "Compressing and encrypting source directories..."
-  tar --exclude='/var/log/journal/*' -czf - -C / "${SOURCE_DIRS[@]}" \
-    | openssl enc -aes-256-cbc -salt -pbkdf2 -iter "$ITERATIONS" -out "$TEMP_DIR/$BACKUP_NAME.enc" -k "$HASHED_KEY"
+  tar --exclude='/var/log/journal/*' -czf - -C / "${SOURCE_DIRS[@]}" 2>>"$LOG_FILE" | \
+  openssl enc -aes-256-cbc -salt -pbkdf2 -iter "$ITERATIONS" -out "$TEMP_DIR/$BACKUP_NAME.enc" -k "$HASHED_KEY"
   log_info "Encrypted archive created: $TEMP_DIR/$BACKUP_NAME.enc"
 }
 
