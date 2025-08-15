@@ -6,7 +6,7 @@ This Bash script automates the process of securely backing up critical directori
 
 - **Backup Sources**: `/var/www`, `/etc/caddy`, `/var/log/caddy`, `/var/log/`
 - **Destinations**: `/mnt/nfs/primary`, `/mnt/nfs/secondary`
-- **Encryption**: AES-128-CBC with PBKDF2 and SHA-3-256 hashed key
+- **Encryption**: AES-256-CBC with PBKDF2 and SHA-3-256 hashed key
 - **Retention Policy**: Deletes backups older than 60 days
 - **Logging**: Logs success/failure of backup transfers
 - **Safety Checks**: Verifies disk space before copying
@@ -36,7 +36,7 @@ Run the script manually or schedule it via `cron` for automated backups.
 This Bash script automates the secure restoration of encrypted backup archives. It provides an interactive, user-friendly interface with color-coded prompts and safety checks.
 
 ## ✅ Features
-- 🔐 **Decryption** using AES-128-CBC with PBKDF2 and SHA3-256 hashed keys
+- 🔐 **Decryption** using AES-256-CBC with PBKDF2 and SHA3-256 hashed keys
 - 📁 **Interactive selection** of backup server and archive
 - 🛡️ **Safety checks** for protected directories and permissions
 - 🧵 **Parallel decryption and extraction** for efficiency
