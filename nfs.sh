@@ -118,12 +118,12 @@ check_disk_space() {
     fi
   done
 }
-
+>> "$LOG_FILE" 2>&1
 # Copy backup file
 copy_backup_file() {
   log_info "Transferring encrypted backup to destination(s)..."
   for dir in "${DEST_DIRS[@]}"; do
-    rsync --info=progress2 "$TEMP_DIR/$BACKUP_NAME.enc" "$dir/" >> "$LOG_FILE" 2>&1
+    rsync -aW --inplace --no-compress --stats --info=progress2 "$TEMP_DIR/$BACKUP_NAME.enc" "$dir/" >> "$LOG_FILE" 2>&1
     if [ $? -eq 0 ]; then
       echo "Backup successfully copied to $dir on $(date)" >> "$LOG_FILE"
     else
