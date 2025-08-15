@@ -118,7 +118,7 @@ check_disk_space() {
     fi
   done
 }
->> "$LOG_FILE" 2>&1
+
 # Copy backup file
 copy_backup_file() {
   log_info "Transferring encrypted backup to destination(s)..."
