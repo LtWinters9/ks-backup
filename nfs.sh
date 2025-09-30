@@ -5,7 +5,10 @@ set -euo pipefail
 source /etc/backups/.env  # Load ENCRYPTION_KEY securely
 
 # Optional flag to clear terminal at the end
-CLEAR_TERMINAL=false
+CLEAR_TERMINAL=true
+
+# Safe fallback for RETENTION_DAYS
+: "${RETENTION_DAYS:=180}"
 
 # Color codes
 RED='\033[0;31m'
@@ -23,8 +26,6 @@ log_warn() {
 log_error() {
   echo "[$(date)] Error: $1" >> "$LOG_FILE"
 }
-
-# Fatal error handler
 fatal_error() {
   log_error "$1"
   exit "$2"
@@ -35,7 +36,6 @@ SOURCE_DIRS=("/var/www" "/etc/caddy" "/var/log/caddy" "/var/log/" "/opt/ks-guvno
 DEST_DIRS=("/mnt/hetzner-sb/hel1-bx98/" "/mnt/hetzner-sb/fsn1-bx196/")
 BACKUP_NAME="backup_$(date +%d-%m-%Y-%I%p).tar.gz"
 TEMP_DIR=$(mktemp -d /tmp/backup_tmp.XXXXXX)
-RETENTION_DAYS=60
 LOG_FILE="/var/log/backup.log"
 ITERATIONS=100000
 HASHED_KEY="$ENCRYPTION_KEY"
@@ -102,8 +102,7 @@ check_temp_space() {
 # Stream compression and encryption using AES-256-CBC
 stream_compress_encrypt() {
   log_info "Compressing and encrypting source directories..."
-  tar --exclude='/var/log/journal/*' -czf - -C / "${SOURCE_DIRS[@]}" 2>>"$LOG_FILE" | \
-  openssl enc -aes-256-cbc -salt -pbkdf2 -iter "$ITERATIONS" -out "$TEMP_DIR/$BACKUP_NAME.enc" -k "$HASHED_KEY"
+  tar --exclude='/var/log/journal/*' -czf - -C / "${SOURCE_DIRS[@]}" 2>>"$LOG_FILE"     | openssl enc -aes-256-cbc -salt -pbkdf2 -iter "$ITERATIONS" -out "$TEMP_DIR/$BACKUP_NAME.enc" -k "$HASHED_KEY"
   log_info "Encrypted archive created: $TEMP_DIR/$BACKUP_NAME.enc"
 }
 
@@ -139,13 +138,38 @@ clean_temp_files() {
   rm -rf "$TEMP_DIR"
 }
 
-# Retention policy (optional background)
+# Tiered retention policy
 apply_retention_policy() {
-  log_info "Enforcing retention policy..."
+  log_info "Applying tiered retention policy..."
+
   for dir in "${DEST_DIRS[@]}"; do
-    find "$dir" -type f -name "backup_*.tar.gz.enc" -mtime +$RETENTION_DAYS -exec rm {} \;
+    declare -A daily_kept
+    declare -A weekly_kept
+
+    find "$dir" -type f -name "backup_*.tar.gz.enc" | while read -r file; do
+      filename=$(basename "$file")
+      date_str=$(echo "$filename" | sed -n 's/backup_\([0-9]\{2\}-[0-9]\{2\}-[0-9]\{4\}\)-.*\.tar\.gz\.enc/\1/p')
+      [[ -z "$date_str" ]] && { log_warn "Skipping unrecognized file: $filename"; continue; }
+
+      iso_date=$(echo "$date_str" | awk -F- '{print $3"-"$2"-"$1}')
+      file_date=$(date -d "$iso_date" +%s 2>/dev/null)
+      [[ -z "$file_date" ]] && { log_warn "Invalid date format: $date_str"; continue; }
+
+      age_days=$(( ( $(date +%s) - file_date ) / 86400 ))
+
+      if (( age_days <= 60 )); then
+        continue
+      elif (( age_days <= 150 )); then
+        key=$(date -d "$iso_date" +%Y-%m-%d)
+        [[ -z "${daily_kept[$key]}" ]] && daily_kept[$key]="$file" || { rm -f "$file"; log_info "Deleted daily duplicate: $filename"; }
+      else
+        key=$(date -d "$iso_date" +%Y-%U)
+        [[ -z "${weekly_kept[$key]}" ]] && weekly_kept[$key]="$file" || { rm -f "$file"; log_info "Deleted weekly duplicate: $filename"; }
+      fi
+    done
   done
-  log_info "Old backups removed as per retention policy."
+
+  log_info "Tiered retention policy applied."
 }
 
 # Trap cleanup
@@ -161,8 +185,6 @@ check_disk_space
 copy_backup_file
 apply_retention_policy &
 wait
-
-
 log_info "Backup process completed successfully."
 
 # Clear terminal if requested
