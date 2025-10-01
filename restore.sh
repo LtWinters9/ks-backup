@@ -42,10 +42,10 @@ select_backup_server() {
   while true; do
     echo -e "${YELLOW}📡 Please choose the backup server to restore from:${NC}"
     PS3="➡️ Type the number corresponding to your chosen server: "
-    select SERVER in "Primary" "Secondary"; do
+    select SERVER in "HEL1-BX98" "FSN1-BX196"; do
       case $REPLY in
-        1) DEST_DIR="/mnt/primary"; break ;;
-        2) DEST_DIR="/mnt/secondary"; break ;;
+        1) DEST_DIR="/mnt/hetzner-sb/hel1-bx98"; break ;;
+        2) DEST_DIR="/mnt/hetzner-sb/fsn1-bx196"; break ;;
         *) echo -e "${RED}❌ That option isn't valid. Please select a valid number.${NC}" ;;
       esac
     done
@@ -96,7 +96,7 @@ decrypt_and_extract() {
   local file=$1
   local temp_file="$TEMP_DIR/$(basename "$file" .enc)"
   echo -e "${BLUE}🔐 Decrypting the selected backup file...${NC}"
-  openssl enc -d -aes-128-cbc -salt -pbkdf2 -iter $ITERATIONS -in "$file" -out "$temp_file" -k "$HASHED_KEY" &
+  openssl enc -d -aes-256-cbc -salt -pbkdf2 -iter $ITERATIONS -in "$file" -out "$temp_file" -k "$ENCRYPTION_KEY" &
   pid=$!
   spinner $pid
   wait $pid
@@ -127,7 +127,6 @@ if [ ! -s "$ENCRYPTION_KEY_FILE" ]; then
 fi
 
 ENCRYPTION_KEY=$(cat "$ENCRYPTION_KEY_FILE")
-HASHED_KEY=$(echo -n $ENCRYPTION_KEY | openssl dgst -sha3-256 | awk '{print $2}')
 
 select_backup_server
 list_backup_files
