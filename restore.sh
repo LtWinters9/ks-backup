@@ -96,7 +96,7 @@ decrypt_and_extract() {
   local file=$1
   local temp_file="$TEMP_DIR/$(basename "$file" .enc)"
   echo -e "${BLUE}🔐 Decrypting the selected backup file...${NC}"
-  openssl enc -d -aes-256-cbc -salt -pbkdf2 -iter $ITERATIONS -in "$file" -out "$temp_file" -k "$ENCRYPTION_KEY" &
+openssl enc -d -aes-256-cbc -salt -pbkdf2 -iter $ITERATIONS -in "$file" -out "$temp_file" -pass file:"$ENCRYPTION_KEY_FILE" &
   pid=$!
   spinner $pid
   wait $pid
@@ -126,7 +126,8 @@ if [ ! -s "$ENCRYPTION_KEY_FILE" ]; then
   exit 1
 fi
 
-ENCRYPTION_KEY=$(cat "$ENCRYPTION_KEY_FILE")
+ENCRYPTION_KEY=$(<"$ENCRYPTION_KEY_FILE")
+ENCRYPTION_KEY=$(echo "$ENCRYPTION_KEY" | tr -d '\r\n')
 
 select_backup_server
 list_backup_files
@@ -143,4 +144,4 @@ cleanup() {
 trap cleanup EXIT INT TERM
 
 # Clear the terminal
-clear
+#clear
