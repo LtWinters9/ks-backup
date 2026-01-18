@@ -45,6 +45,7 @@ BACKUP_ROOTS=("${DEFAULT_BACKUP_ROOTS[@]}")
 SELECTED_ROOT=""
 SELECTED_FILE=""
 EXTRACT_DIR=""
+SCAN_PATH=""
 
 # Secrets
 OPENSSL_PASS_ARGS=()
@@ -205,6 +206,20 @@ source_env_and_key() {
 }
 
 ############################################
+#             PATH RESOLUTION              #
+############################################
+
+# Choose the best scan path for a given root: prefer <root>/backups if present
+resolve_scan_path() {
+  local root="$1"
+  if [[ -d "${root%/}/backups" ]]; then
+    echo "${root%/}/backups"
+  else
+    echo "${root%/}"
+  fi
+}
+
+############################################
 #             INTERACTIVE UI               #
 ############################################
 
@@ -212,7 +227,8 @@ select_backup_root() {
   # If provided via CLI, validate
   if [[ -n "$SELECTED_ROOT" ]]; then
     if [[ -d "$SELECTED_ROOT" && -r "$SELECTED_ROOT" ]]; then
-      info "Using backup root: $SELECTED_ROOT"
+      SCAN_PATH="$(resolve_scan_path "$SELECTED_ROOT")"
+      info "Using backup root: $SELECTED_ROOT (scanning: $SCAN_PATH)"
       return 0
     else
       error "Provided --server path is not readable: $SELECTED_ROOT"
@@ -240,7 +256,8 @@ select_backup_root() {
       echo -e "${RED}❌ Invalid selection. Try again.${NC}"
     fi
   done
-  info "Selected backup root: $SELECTED_ROOT"
+  SCAN_PATH="$(resolve_scan_path "$SELECTED_ROOT")"
+  info "Selected backup root: $SELECTED_ROOT (scanning: $SCAN_PATH)"
 }
 
 list_backup_files() {
@@ -255,15 +272,23 @@ list_backup_files() {
     fi
   fi
 
-  # List files in the selected root
+  # Ensure SCAN_PATH is set (in case select_backup_root was skipped due to --server)
+  if [[ -z "$SCAN_PATH" && -n "$SELECTED_ROOT" ]]; then
+    SCAN_PATH="$(resolve_scan_path "$SELECTED_ROOT")"
+  fi
+  if [[ -z "$SCAN_PATH" ]]; then
+    error "Internal error: SCAN_PATH not set"
+    exit 1
+  fi
+
+  # List files in the scan path (newest first)
   local files=()
-  # Sorted newest first
   while IFS= read -r f; do
     files+=("$f")
-  done < <(ls -t "${SELECTED_ROOT}"/backup_*.tar.gz.enc 2>/dev/null || true)
+  done < <(ls -t "${SCAN_PATH}"/backup_*.tar.gz.enc 2>/dev/null || true)
 
   if ((${#files[@]} == 0)); then
-    error "No backup_*.tar.gz.enc files found in ${SELECTED_ROOT}"
+    error "No backup_*.tar.gz.enc files found in ${SCAN_PATH}"
     exit 1
   fi
 
